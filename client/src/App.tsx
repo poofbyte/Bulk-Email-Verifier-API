@@ -22,7 +22,6 @@ export default function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/security" element={<Security />} />
             <Route path="/gdpr" element={<Gdpr />} />
-            <Route path="/docs" element={<DocsRedirect />} />
             <Route
               path="/dashboard"
               element={
@@ -36,30 +35,5 @@ export default function App() {
         <Footer />
       </div>
     </AuthProvider>
-  );
-}
-
-function DocsRedirect() {
-  return (
-    <div className="py-8 flex-1 flex flex-col items-center">
-      <div className="max-w-5xl w-full px-6">
-        <span className="text-[10px] font-bold text-accent-600 tracking-widest uppercase font-mono bg-accent-50 px-2 py-0.5 rounded border border-accent-100">
-          API DOCUMENTATION
-        </span>
-        <h1 className="text-lg md:text-xl font-bold tracking-tight text-neutral-900 mt-2">
-          Swagger API Reference
-        </h1>
-        <p className="text-xs text-brand-500 mt-1 mb-4">
-          Interactive API documentation with request/response examples.
-        </p>
-        <div className="bg-white border border-brand-200 rounded-lg overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
-          <iframe
-            src="/docs"
-            className="w-full h-[80vh] border-0"
-            title="API Documentation"
-          />
-        </div>
-      </div>
-    </div>
   );
 }
