@@ -74,7 +74,7 @@ async function start() {
   app.use('/api/v1/health', globalLimiter, healthRoutes);
 
   // Protected routes
-  app.use('/api/v1/validate', globalLimiter, validateRoutes);
+  app.use('/api/v1/validate', validateRoutes);
   app.use('/api/v1/usage', globalLimiter, usageRoutes);
 
   // Admin routes
