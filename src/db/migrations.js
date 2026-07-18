@@ -16,11 +16,7 @@ async function runMigrations() {
   `);
 
   // API Keys table - handle migration for existing databases
-  const tableCheck = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys'");
-  const tableExists = tableCheck.length > 0 && tableCheck[0].values.length > 0;
-
-  if (!tableExists) {
-    // New database - create table with user_id
+  try {
     db.run(`
       CREATE TABLE api_keys (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,13 +31,11 @@ async function runMigrations() {
         FOREIGN KEY (user_id) REFERENCES users(id)
       )
     `);
-  } else {
-    // Existing database - check if user_id column exists
-    const columns = db.exec("PRAGMA table_info(api_keys)");
-    const hasUserId = columns.length > 0 && columns[0].values.some((row) => row[1] === 'user_id');
-    if (!hasUserId) {
+  } catch (e) {
+    // Table might already exist, try adding user_id column
+    try {
       db.run('ALTER TABLE api_keys ADD COLUMN user_id INTEGER');
-    }
+    } catch {}
   }
 
   // Usage logs table
@@ -57,11 +51,17 @@ async function runMigrations() {
     )
   `);
 
-  db.run('CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_usage_logs_key_id ON usage_logs(api_key_id)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON usage_logs(created_at)');
+  // Indexes (ignore errors if they already exist)
+  const indexes = [
+    'CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)',
+    'CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+    'CREATE INDEX IF NOT EXISTS idx_usage_logs_key_id ON usage_logs(api_key_id)',
+    'CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON usage_logs(created_at)',
+  ];
+  for (const idx of indexes) {
+    try { db.run(idx); } catch {}
+  }
 
   saveDb();
 }

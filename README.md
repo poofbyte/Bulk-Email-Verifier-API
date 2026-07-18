@@ -4,15 +4,14 @@ Full-stack email verification SaaS with a React frontend and Express API backend
 
 ## Features
 
-- **5-Layer Email Validation**: Regex, Typo detection, Disposable domain check, MX record verification, SMTP mailbox verification
-- **Enterprise SaaS UI**: Stripe/Linear-tier design with Inter + JetBrains Mono fonts, data-dense layouts, and real-time results
+- **5-Layer Email Validation**: Regex, Typo detection, Disposable domain check, MX record verification
+- **Enterprise SaaS UI**: Stripe/Linear-tier design with Inter + JetBrains Mono fonts
 - **User Accounts**: Signup/Login with bcrypt-hashed passwords, automatic API key generation
 - **Tiered API Access**: Free, Pro, and Enterprise tiers with different rate limits
 - **Bulk Validation**: Validate up to 10,000 emails per request (Enterprise tier)
-- **Dashboard**: Drag-and-drop CSV import, search/filter/pagination, CSV export, keyboard shortcuts, batch history
+- **Dashboard**: Drag-and-drop CSV import, search/filter/pagination, CSV export, keyboard shortcuts
 - **Swagger/OpenAPI Docs**: Self-documenting API at `/docs`
-- **Admin Key Management**: CLI tool + REST endpoints for managing API keys
-- **SQLite Storage**: Zero-config, file-based database
+- **SQLite/Turso**: Works locally with SQLite, deploys to Turso (free 9GB) for production
 
 ## Quick Start
 
@@ -23,21 +22,19 @@ npm install
 # Install client dependencies
 cd client && npm install && cd ..
 
-# Create a .env file
+# Create .env
 cp .env.example .env
 
 # Build the frontend
 npm run build
 
-# Start the server (serves both API + SPA)
+# Start the server
 npm start
 ```
 
-Open `http://localhost:3000` to see the full SaaS application.
+Open `http://localhost:3000`
 
 ## Development
-
-Run the API and frontend dev server separately:
 
 ```bash
 # Terminal 1: API server
@@ -47,13 +44,13 @@ npm run dev
 npm run dev:client
 ```
 
-The Vite dev server runs on port 5173 and proxies `/api` and `/docs` to the Express server on port 3000.
+Vite runs on port 5173 and proxies `/api` and `/docs` to Express on port 3000.
 
 ## Pages
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/` | Landing | Marketing page with features, pricing, FAQ |
+| `/` | Landing | Marketing, features, pricing, FAQ |
 | `/signup` | Signup | Create account, get API key |
 | `/login` | Login | Sign in with email + password |
 | `/dashboard` | Dashboard | Main verification workspace |
@@ -104,6 +101,70 @@ The Vite dev server runs on port 5173 and proxies `/api` and `/docs` to the Expr
 | Pro | 100 | 1,000 | 50,000 |
 | Enterprise | 1,000 | 10,000 | Unlimited |
 
+## Deployment (Free Tier)
+
+### Option 1: Railway + Turso (Recommended)
+
+**1. Create Turso database (free):**
+```bash
+# Install Turso CLI
+curl -sSfL https://get.tur.so/install.sh | bash
+
+# Login and create database
+turso auth login
+turso db create bulk-email-verifier
+turso db tokens create bulk-email-verifier
+```
+
+**2. Deploy to Railway:**
+1. Push to GitHub
+2. Go to [railway.app](https://railway.app)
+3. New Project > Deploy from GitHub repo
+4. Add environment variables:
+   - `TURSO_DATABASE_URL` = `libsql://your-db-name-your-org.turso.io`
+   - `TURSO_AUTH_TOKEN` = your token
+   - `ADMIN_KEY` = a secure random string
+   - `NODE_ENV` = `production`
+5. Railway auto-deploys using the `Dockerfile`
+
+### Option 2: Render (Free Tier)
+
+1. Push to GitHub
+2. Go to [render.com](https://render.com)
+3. New Web Service > Connect repo
+4. Build command: `npm install && cd client && npm install && npm run build`
+5. Start command: `node src/index.js`
+6. Add env vars same as above
+
+### Option 3: Fly.io (Free Tier)
+
+```bash
+fly auth login
+fly launch
+fly secrets set TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... ADMIN_KEY=...
+fly deploy
+```
+
+## Configuration
+
+Copy `.env.example` to `.env`:
+
+```env
+PORT=3000
+HOST=0.0.0.0
+NODE_ENV=production
+CORS_ORIGINS=*
+LOG_LEVEL=info
+ADMIN_KEY=your-secure-admin-key
+
+# Local (no config needed)
+# DB_PATH=./data/verifier.db
+
+# Production (Turso free tier)
+TURSO_DATABASE_URL=libsql://your-db.turso.io
+TURSO_AUTH_TOKEN=your-token
+```
+
 ## Project Structure
 
 ```
@@ -120,39 +181,22 @@ Bulk-Email-Verifier-API/
 │   ├── routes/                # validate, usage, health, auth, admin
 │   ├── services/              # emailValidator, keyManager, userManager
 │   ├── middleware/             # auth, rateLimiter, validator, errorHandler
-│   ├── db/                    # SQLite (sql.js) database + migrations
+│   ├── db/                    # SQLite (sql.js) / Turso database layer
 │   └── docs/                  # Swagger/OpenAPI spec
 ├── scripts/                   # CLI key management tool
 ├── tests/                     # Unit tests (vitest)
+├── Dockerfile                 # Production Docker build
+├── railway.json               # Railway deployment config
 └── dist/                      # Built React app (served by Express)
 ```
 
-## Configuration
+## CLI Key Management
 
-Copy `.env.example` to `.env`:
-
-```env
-PORT=3000
-HOST=0.0.0.0
-NODE_ENV=production
-CORS_ORIGINS=*
-DB_PATH=./data/verifier.db
-LOG_LEVEL=info
-ADMIN_KEY=your-secure-admin-key
-```
-
-## Deployment
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY . .
-RUN cd client && npm ci && npm run build
-RUN mkdir -p data
-EXPOSE 3000
-CMD ["node", "src/index.js"]
+```bash
+npm run generate-key -- create "Production API" pro
+npm run generate-key -- list
+npm run generate-key -- deactivate 1
+npm run generate-key -- reactivate 1
 ```
 
 ## License
