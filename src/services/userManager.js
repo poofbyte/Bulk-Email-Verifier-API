@@ -9,11 +9,6 @@ function createUser(name, email, password) {
   const passwordHash = bcrypt.hashSync(password, SALT_ROUNDS);
 
   // Check if email already exists
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get
-    ? db.prepare('SELECT id FROM users WHERE email = ?').values([email])
-    : null;
-
-  // Use parameterized query to check
   const stmt = db.prepare('SELECT id FROM users WHERE email = ?');
   stmt.bind([email]);
   if (stmt.step()) {

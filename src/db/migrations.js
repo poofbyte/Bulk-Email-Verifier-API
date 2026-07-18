@@ -4,6 +4,7 @@ async function runMigrations() {
   await initDb();
   const db = getDb();
 
+  // Users table
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,21 +15,36 @@ async function runMigrations() {
     )
   `);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS api_keys (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      key_hash TEXT UNIQUE NOT NULL,
-      key_prefix TEXT NOT NULL,
-      name TEXT NOT NULL,
-      tier TEXT NOT NULL DEFAULT 'free',
-      active INTEGER NOT NULL DEFAULT 1,
-      user_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      last_used_at TEXT,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )
-  `);
+  // API Keys table - handle migration for existing databases
+  const tableCheck = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys'");
+  const tableExists = tableCheck.length > 0 && tableCheck[0].values.length > 0;
 
+  if (!tableExists) {
+    // New database - create table with user_id
+    db.run(`
+      CREATE TABLE api_keys (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        key_hash TEXT UNIQUE NOT NULL,
+        key_prefix TEXT NOT NULL,
+        name TEXT NOT NULL,
+        tier TEXT NOT NULL DEFAULT 'free',
+        active INTEGER NOT NULL DEFAULT 1,
+        user_id INTEGER,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        last_used_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+  } else {
+    // Existing database - check if user_id column exists
+    const columns = db.exec("PRAGMA table_info(api_keys)");
+    const hasUserId = columns.length > 0 && columns[0].values.some((row) => row[1] === 'user_id');
+    if (!hasUserId) {
+      db.run('ALTER TABLE api_keys ADD COLUMN user_id INTEGER');
+    }
+  }
+
+  // Usage logs table
   db.run(`
     CREATE TABLE IF NOT EXISTS usage_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +66,6 @@ async function runMigrations() {
   saveDb();
 }
 
-// Run directly: node src/db/migrations.js
 if (require.main === module) {
   runMigrations()
     .then(() => {
