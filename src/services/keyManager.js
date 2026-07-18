@@ -149,6 +149,7 @@ function logUsage(apiKeyId, endpoint, emailsValidated, durationMs) {
 
 module.exports = {
   generateRawKey,
+  hashKey,
   createApiKey,
   verifyApiKey,
   listApiKeys,

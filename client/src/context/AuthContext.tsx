@@ -32,14 +32,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.getMe()
         .then((res) => {
           if (res.success) setUser(res.data);
-          else {
+          else if (res.error?.code === 'INVALID_API_KEY') {
             localStorage.removeItem('bev_api_key');
             setApiKey(null);
           }
+          // On other errors (500, network), keep the key and try later
         })
         .catch(() => {
-          localStorage.removeItem('bev_api_key');
-          setApiKey(null);
+          // Network error - keep the key, user might be offline
         })
         .finally(() => setLoading(false));
     } else {

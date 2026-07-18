@@ -19,7 +19,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<ApiR
 
   const data = await res.json();
 
-  if (res.status === 401) {
+  // Only redirect to login on 401 for non-auth endpoints
+  // Auth endpoints handle their own error display
+  if (res.status === 401 && !path.startsWith('/auth/')) {
     localStorage.removeItem('bev_api_key');
     window.location.href = '/login';
     throw new Error('Unauthorized');
