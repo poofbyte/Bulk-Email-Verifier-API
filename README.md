@@ -1,14 +1,15 @@
-# Bulk Email Verifier API
+# Bulk Email Verifier - SaaS Platform
 
-Production-ready REST API for email validation with tiered API key access. Validates emails using 5-layer verification and is ready to sell as a SaaS.
+Full-stack email verification SaaS with a React frontend and Express API backend. Validates emails using 5-layer verification (Regex, Typo, Disposable, MX, SMTP) with tiered API key access.
 
 ## Features
 
 - **5-Layer Email Validation**: Regex, Typo detection, Disposable domain check, MX record verification, SMTP mailbox verification
+- **Enterprise SaaS UI**: Stripe/Linear-tier design with Inter + JetBrains Mono fonts, data-dense layouts, and real-time results
+- **User Accounts**: Signup/Login with bcrypt-hashed passwords, automatic API key generation
 - **Tiered API Access**: Free, Pro, and Enterprise tiers with different rate limits
-- **API Key Authentication**: Secure SHA-256 hashed keys with prefix display
-- **Usage Tracking**: Per-key usage stats for billing and monitoring
 - **Bulk Validation**: Validate up to 10,000 emails per request (Enterprise tier)
+- **Dashboard**: Drag-and-drop CSV import, search/filter/pagination, CSV export, keyboard shortcuts, batch history
 - **Swagger/OpenAPI Docs**: Self-documenting API at `/docs`
 - **Admin Key Management**: CLI tool + REST endpoints for managing API keys
 - **SQLite Storage**: Zero-config, file-based database
@@ -16,20 +17,49 @@ Production-ready REST API for email validation with tiered API key access. Valid
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install server dependencies
 npm install
+
+# Install client dependencies
+cd client && npm install && cd ..
 
 # Create a .env file
 cp .env.example .env
 
-# Generate your first API key
-npm run generate-key -- create "My App" free
+# Build the frontend
+npm run build
 
-# Start the server
+# Start the server (serves both API + SPA)
 npm start
 ```
 
-The API will be available at `http://localhost:3000` with docs at `http://localhost:3000/docs`.
+Open `http://localhost:3000` to see the full SaaS application.
+
+## Development
+
+Run the API and frontend dev server separately:
+
+```bash
+# Terminal 1: API server
+npm run dev
+
+# Terminal 2: Vite dev server (hot reload)
+npm run dev:client
+```
+
+The Vite dev server runs on port 5173 and proxies `/api` and `/docs` to the Express server on port 3000.
+
+## Pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Landing | Marketing page with features, pricing, FAQ |
+| `/signup` | Signup | Create account, get API key |
+| `/login` | Login | Sign in with email + password |
+| `/dashboard` | Dashboard | Main verification workspace |
+| `/security` | Security | Security specs and protocol details |
+| `/gdpr` | GDPR | GDPR compliance documentation |
+| `/docs` | API Docs | Interactive Swagger documentation |
 
 ## API Endpoints
 
@@ -37,7 +67,15 @@ The API will be available at `http://localhost:3000` with docs at `http://localh
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/v1/health` | Health check (no auth required) |
+| `GET` | `/api/v1/health` | Health check |
+
+### Auth
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/auth/signup` | Create account (name, email, password) |
+| `POST` | `/api/v1/auth/login` | Login (email, password) |
+| `GET` | `/api/v1/auth/me` | Get current user (requires API key) |
 
 ### Protected (requires `X-API-Key` header)
 
@@ -45,103 +83,53 @@ The API will be available at `http://localhost:3000` with docs at `http://localh
 |--------|----------|-------------|
 | `POST` | `/api/v1/validate` | Validate a single email |
 | `POST` | `/api/v1/validate/bulk` | Validate multiple emails |
-| `GET` | `/api/v1/usage` | Get usage stats for your key |
+| `GET` | `/api/v1/usage` | Get usage stats |
 
 ### Admin (requires admin key)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/admin/keys` | Create a new API key |
-| `GET` | `/api/v1/admin/keys` | List all API keys |
-| `POST` | `/api/v1/admin/keys/:id/deactivate` | Deactivate a key |
-| `POST` | `/api/v1/admin/keys/:id/reactivate` | Reactivate a key |
-| `PUT` | `/api/v1/admin/keys/:id/tier` | Update key tier |
-| `DELETE` | `/api/v1/admin/keys/:id` | Delete a key |
-
-## Usage Examples
-
-### Validate a Single Email
-
-```bash
-curl -X POST http://localhost:3000/api/v1/validate \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: bev_your_key_here" \
-  -d '{"email": "user@example.com"}'
-```
-
-Response:
-```json
-{
-  "success": true,
-  "data": {
-    "email": "user@example.com",
-    "isValid": true,
-    "isRisky": false,
-    "score": 85,
-    "reason": null,
-    "typoSuggestion": null,
-    "isDisposable": false,
-    "mxValid": true,
-    "smtpValid": true
-  },
-  "meta": { "duration_ms": 342 }
-}
-```
-
-### Bulk Validate Emails
-
-```bash
-curl -X POST http://localhost:3000/api/v1/validate/bulk \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: bev_your_key_here" \
-  -d '{"emails": ["user@example.com", "test@gmail.com", "bad@nowhere.xyz"]}'
-```
-
-Response:
-```json
-{
-  "success": true,
-  "data": {
-    "results": [...],
-    "stats": {
-      "total": 3,
-      "valid": 2,
-      "invalid": 0,
-      "risky": 1,
-      "errors": 0,
-      "duration_ms": 1200
-    }
-  }
-}
-```
+| `POST` | `/api/v1/admin/keys` | Create API key |
+| `GET` | `/api/v1/admin/keys` | List all keys |
+| `POST` | `/api/v1/admin/keys/:id/deactivate` | Deactivate key |
+| `POST` | `/api/v1/admin/keys/:id/reactivate` | Reactivate key |
+| `PUT` | `/api/v1/admin/keys/:id/tier` | Update tier |
+| `DELETE` | `/api/v1/admin/keys/:id` | Delete key |
 
 ## Tiers & Rate Limits
 
-| Tier | Requests/min | Max Batch Size | Daily Emails |
-|------|-------------|----------------|--------------|
+| Tier | Requests/min | Max Batch | Daily Emails |
+|------|-------------|-----------|--------------|
 | Free | 10 | 50 | 500 |
 | Pro | 100 | 1,000 | 50,000 |
 | Enterprise | 1,000 | 10,000 | Unlimited |
 
-## CLI Key Management
+## Project Structure
 
-```bash
-# Create a key
-npm run generate-key -- create "Production API" pro
-
-# List all keys
-npm run generate-key -- list
-
-# Deactivate a key
-npm run generate-key -- deactivate 1
-
-# Reactivate a key
-npm run generate-key -- reactivate 1
+```
+Bulk-Email-Verifier-API/
+├── client/                    # React SPA (Vite + TypeScript + Tailwind v4)
+│   ├── src/
+│   │   ├── pages/             # Landing, Dashboard, Login, Signup, Security, GDPR
+│   │   ├── components/        # Header, Footer, StatusBadge, Button, Card, etc.
+│   │   ├── api/               # API client (fetch wrapper with X-API-Key)
+│   │   ├── context/           # AuthContext (login/signup/logout state)
+│   │   └── hooks/             # useAuth, useValidation
+│   └── vite.config.ts
+├── src/                       # Express API server
+│   ├── routes/                # validate, usage, health, auth, admin
+│   ├── services/              # emailValidator, keyManager, userManager
+│   ├── middleware/             # auth, rateLimiter, validator, errorHandler
+│   ├── db/                    # SQLite (sql.js) database + migrations
+│   └── docs/                  # Swagger/OpenAPI spec
+├── scripts/                   # CLI key management tool
+├── tests/                     # Unit tests (vitest)
+└── dist/                      # Built React app (served by Express)
 ```
 
 ## Configuration
 
-Copy `.env.example` to `.env` and configure:
+Copy `.env.example` to `.env`:
 
 ```env
 PORT=3000
@@ -155,25 +143,17 @@ ADMIN_KEY=your-secure-admin-key
 
 ## Deployment
 
-### Docker (recommended)
-
 ```dockerfile
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY . .
+RUN cd client && npm ci && npm run build
 RUN mkdir -p data
 EXPOSE 3000
 CMD ["node", "src/index.js"]
 ```
-
-### Environment Variables for Production
-
-- Set `NODE_ENV=production`
-- Set a strong `ADMIN_KEY`
-- Configure `CORS_ORIGINS` for your frontend
-- Use a process manager like PM2 or run behind nginx
 
 ## License
 
