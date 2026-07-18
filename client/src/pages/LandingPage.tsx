@@ -90,12 +90,12 @@ export default function LandingPage() {
                 Start Verifying Free
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
-              <Link
-                to="/docs"
+              <a
+                href="/docs"
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md bg-white border border-brand-200 text-brand-700 font-medium hover:bg-neutral-100 transition-colors text-xs no-underline"
               >
                 View API Docs
-              </Link>
+              </a>
             </div>
             <div className="grid grid-cols-3 gap-3 border-t border-brand-200 pt-4 mt-2">
               <div>
