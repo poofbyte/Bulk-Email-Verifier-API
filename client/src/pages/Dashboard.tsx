@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Play, Square, Trash2, Download, Search, ChevronDown, ChevronUp,
-  UploadCloud, Keyboard, Copy, Check, Key,
+  UploadCloud, Keyboard, Copy, Check, Key, Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useValidation } from '@/hooks/useValidation';
@@ -289,7 +289,16 @@ export default function Dashboard() {
 
             {/* Results Table */}
             {results.length > 0 && (
-              <div className="bg-white border border-brand-200 rounded-lg overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
+              <div className="bg-white border border-brand-200 rounded-lg overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.01)] relative">
+                {/* Loading overlay */}
+                {loading && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                    <div className="flex items-center gap-2 text-xs text-brand-600">
+                      <Loader2 className="w-4 h-4 animate-spin text-accent-600" />
+                      <span className="font-medium">Validating...</span>
+                    </div>
+                  </div>
+                )}
                 {/* Filters */}
                 <div className="px-3 py-2 border-b border-brand-200 flex items-center gap-2">
                   <div className="relative flex-1">
@@ -374,6 +383,22 @@ export default function Dashboard() {
                         <option key={n} value={n}>{n}/page</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading State */}
+            {loading && results.length === 0 && (
+              <div className="bg-white border border-brand-200 rounded-lg p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
+                <div className="w-10 h-10 rounded-md bg-accent-50 border border-accent-100 flex items-center justify-center mx-auto mb-3">
+                  <Loader2 className="w-5 h-5 text-accent-600 animate-spin" />
+                </div>
+                <p className="text-xs font-semibold text-brand-900 mb-1">Validating {emails.length} emails...</p>
+                <p className="text-[11px] text-brand-500">This may take a few seconds per email for SMTP verification</p>
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  <div className="w-32 h-1.5 bg-brand-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-accent-500 rounded-full animate-pulse" style={{ width: '60%' }} />
                   </div>
                 </div>
               </div>

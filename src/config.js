@@ -33,7 +33,7 @@ const config = {
     },
   },
 
-  // Validation config (ported from webapp)
+  // Validation config
   validation: {
     concurrency: 20,
     rateLimit: {
@@ -41,7 +41,7 @@ const config = {
       perDomain: { requests: 10, window: 60 },
     },
     config: {
-      preset: 'strict',
+      preset: 'balanced',  // Fast: regex + typo + disposable + MX (no SMTP)
       earlyExit: true,
     },
   },
