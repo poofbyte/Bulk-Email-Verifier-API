@@ -5,6 +5,16 @@ async function runMigrations() {
   const db = getDb();
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS api_keys (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       key_hash TEXT UNIQUE NOT NULL,
@@ -12,8 +22,10 @@ async function runMigrations() {
       name TEXT NOT NULL,
       tier TEXT NOT NULL DEFAULT 'free',
       active INTEGER NOT NULL DEFAULT 1,
+      user_id INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      last_used_at TEXT
+      last_used_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     )
   `);
 
@@ -30,6 +42,8 @@ async function runMigrations() {
   `);
 
   db.run('CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
   db.run('CREATE INDEX IF NOT EXISTS idx_usage_logs_key_id ON usage_logs(api_key_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON usage_logs(created_at)');
 

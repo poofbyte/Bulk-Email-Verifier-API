@@ -7,6 +7,7 @@ const hpp = require('hpp');
 const pino = require('pino');
 const swaggerUi = require('swagger-ui-express');
 
+const path = require('path');
 const config = require('./config');
 const { runMigrations } = require('./db/migrations');
 const { closeDb } = require('./db/database');
@@ -19,6 +20,7 @@ const validateRoutes = require('./routes/validate');
 const usageRoutes = require('./routes/usage');
 const healthRoutes = require('./routes/health');
 const adminRoutes = require('./routes/admin');
+const authRoutes = require('./routes/auth');
 
 // Logger
 const logger = pino({
@@ -77,6 +79,24 @@ async function start() {
 
   // Admin routes
   app.use('/api/v1/admin', adminRoutes);
+
+  // Auth routes
+  app.use('/api/v1/auth', authRoutes);
+
+  // Static file serving (built React app)
+  const distPath = path.join(__dirname, '..', 'dist');
+  app.use(express.static(distPath, {
+    maxAge: '1y',
+    immutable: true,
+  }));
+
+  // SPA fallback - serve index.html for all non-API routes
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/docs') || req.path === '/openapi.json') {
+      return next();
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
 
   // Error handling
   app.use(notFoundHandler);
