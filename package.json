@@ -1,0 +1,38 @@
+{
+  "name": "bulk-email-verifier-api",
+  "version": "1.0.0",
+  "description": "Production-ready REST API for email validation with tiered API key access",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate-key": "node scripts/generate-key.js",
+    "migrate": "node src/db/migrations.js"
+  },
+  "keywords": ["email", "validation", "verifier", "api", "bulk"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@mailtester/core": "^1.2.0",
+    "sql.js": "^1.11.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "hpp": "^0.2.3",
+    "pino": "^9.5.0",
+    "pino-pretty": "^13.0.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
