@@ -36,7 +36,9 @@ async function start() {
   const app = express();
 
   // Security
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: false,
+  }));
   app.use(cors({ origin: config.corsOrigins === '*' ? true : config.corsOrigins.split(',') }));
   app.use(hpp());
 

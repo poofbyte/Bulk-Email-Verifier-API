@@ -17,9 +17,9 @@ export default function Footer() {
             <FileText className="w-3 h-3" />
             GDPR
           </Link>
-          <Link to="/docs" className="text-brand-500 hover:text-brand-900 transition-colors no-underline">
+          <a href="/docs" className="text-brand-500 hover:text-brand-900 transition-colors no-underline">
             API Docs
-          </Link>
+          </a>
         </div>
       </div>
     </footer>
