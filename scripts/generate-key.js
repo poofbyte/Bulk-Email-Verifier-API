@@ -15,8 +15,10 @@ const path = require('path');
 // Ensure we're in the project root
 process.chdir(path.join(__dirname, '..'));
 
-const { runMigrations } = require('../src/db/migrations');
-const { closeDb } = require('../src/db/database');
+// Force local SQLite for CLI operations
+process.env.TURSO_DATABASE_URL = '';
+
+const { initDb, getDb, saveDb } = require('../src/db/database');
 const {
   createApiKey,
   listApiKeys,
@@ -72,7 +74,7 @@ function printKeys(keys) {
 }
 
 async function main() {
-  await runMigrations();
+  await initDb();
 
   const [,, command, ...args] = process.argv;
 
@@ -137,7 +139,7 @@ Examples:
       break;
   }
 
-  closeDb();
+  saveDb();
 }
 
 main().catch((err) => {

@@ -31,10 +31,10 @@ async function initTurso() {
 function createTursoAdapter(client) {
   // Adapter that wraps Turso to match sql.js API surface used by our code
   return {
-    run(sql, params = []) {
-      client.execute({ sql, args: params });
+    async run(sql, params = []) {
+      await client.execute({ sql, args: params });
     },
-    exec(sql) {
+    async exec(sql) {
       // exec returns results like sql.js: [{ columns: [...], values: [[...], ...] }]
       const stmts = sql.split(';').filter(s => s.trim());
       const results = [];
@@ -47,7 +47,7 @@ function createTursoAdapter(client) {
       }
       return results;
     },
-    prepare(sql) {
+    async prepare(sql) {
       // Return a sync-compatible wrapper for Turso prepared statements
       let boundArgs = [];
       let lastResult = null;
@@ -57,10 +57,15 @@ function createTursoAdapter(client) {
           boundArgs = args || [];
           return stmt;
         },
-        step() {
+        async step() {
           // Execute and cache result
-          lastResult = client.prepare(sql).all({ args: boundArgs });
-          return lastResult.rows && lastResult.rows.length > 0;
+          try {
+            const result = await client.prepare(sql).all({ args: boundArgs });
+            lastResult = result;
+            return result.rows && result.rows.length > 0;
+          } catch {
+            return false;
+          }
         },
         get() {
           if (lastResult && lastResult.rows && lastResult.rows.length > 0) {
@@ -80,7 +85,7 @@ function createTursoAdapter(client) {
       };
       return stmt;
     },
-    export() {
+    async export() {
       return null; // Turso doesn't need export
     },
     close() {
@@ -130,9 +135,14 @@ function getDb() {
   function scheduleSave() {
     if (dbType === 'turso') return; // Turso saves automatically
     if (!db) return;
+    
+    // Capture current db reference to avoid race conditions
+    const dbRef = db;
     setImmediate(() => {
       try {
-        const data = db.export();
+        // Double-check db is still valid
+        if (!dbRef || typeof dbRef.export !== 'function') return;
+        const data = dbRef.export();
         if (!data || data === null) return;
         const buffer = Buffer.from(data);
         fs.writeFileSync(config.dbPath, buffer);
