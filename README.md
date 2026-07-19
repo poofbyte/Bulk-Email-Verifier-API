@@ -81,8 +81,8 @@ Vite runs on port 5173 and proxies `/api` and `/docs` to Express on port 3000.
 ## Admin Panel
 
 ### Access
-1. Log in to your dashboard
-2. Navigate to `/admin` or click the "Admin Panel" link in dashboard
+1. Log in to your dashboard (regular user account)
+2. Navigate to `http://localhost:3000/admin` (lowercase) or click the "Admin Panel" link in dashboard
 3. Enter your Admin API Key when prompted
 
 ### Features
@@ -91,21 +91,31 @@ Vite runs on port 5173 and proxies `/api` and `/docs` to Express on port 3000.
 - **System Status**: Database, API server, validation engine status
 
 ### Admin Key Setup
-The admin key must be set in your `.env` file:
+
+The admin panel requires the **same API key** that's configured in your `.env` as `ADMIN_KEY`.
+
+**Step 1: Set the admin key in `.env`**
 ```env
-ADMIN_KEY=your-secure-admin-key-here
+ADMIN_KEY=your-admin-api-key-here
 ```
 
-Create a key with admin access:
+**Step 2: Create this key in your database**
 ```bash
-npm run generate-key -- create "Admin Key" enterprise
+# Using the CLI tool
+node scripts/generate-key.js create "Admin Access" enterprise
+
+# Or insert directly into the database
+# Run these commands in your database tool:
+INSERT INTO api_keys (name, key, tier, active, created_at) 
+VALUES ('Admin Access', 'your-admin-api-key-here', 'enterprise', 1, datetime('now'));
 ```
 
-Or create one via the database:
-```sql
-INSERT INTO api_keys (name, key, tier, is_admin) 
-VALUES ('Admin Key', 'your-secure-key', 'enterprise', 1);
-```
+**Step 3: Access the admin panel**
+1. Log in to your dashboard
+2. Navigate to `http://localhost:3000/admin`
+3. When prompted, enter the **exact same key** you set as `ADMIN_KEY` in `.env`
+
+**Important**: The admin panel uses the same API key for authentication. Enter the raw API key (not a prefix).
 
 ## API Endpoints
 
