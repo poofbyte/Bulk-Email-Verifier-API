@@ -157,3 +157,12 @@ export function getAdminKeyFromStorage(): string | null {
 export function clearAdminKey() {
   localStorage.removeItem('bev_admin_key');
 }
+
+// API client wrapper for REST-like interface
+export const api = {
+  get: (path: string, options?: RequestInit) => requestAdmin(path, { ...options, method: 'GET' }),
+  post: (path: string, data?: any, options?: RequestInit) => requestAdmin(path, { ...options, method: 'POST', body: JSON.stringify(data) }),
+  put: (path: string, data?: any, options?: RequestInit) => requestAdmin(path, { ...options, method: 'PUT', body: JSON.stringify(data) }),
+  delete: (path: string, options?: RequestInit) => requestAdmin(path, { ...options, method: 'DELETE' }),
+  postWithoutAdmin: (path: string, data?: any, options?: RequestInit) => request(path, { ...options, method: 'POST', body: JSON.stringify(data) }),
+};
