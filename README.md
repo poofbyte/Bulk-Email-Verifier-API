@@ -2,6 +2,24 @@
 
 Full-stack email verification SaaS with a React frontend and Express API backend. Validates emails using 5-layer verification (Regex, Typo, Disposable, MX, SMTP) with tiered API key access.
 
+## Security Audit Summary
+
+This application underwent a comprehensive security audit and multiple vulnerabilities were fixed before public release:
+
+### Critical Fixes Applied:
+
+| Issue | Severity | Status |
+|-------|----------|--------|
+| SQL Injection | Critical | Fixed - Using prepared statements |
+| CORS Wildcard | High | Fixed - Whitelist-based CORS |
+| Admin Key Bypass | High | Fixed - Proper admin verification |
+| Weak API Keys | Medium | Fixed - High-entropy generation |
+| Rate Limiting | Medium | Fixed - Per-tier limits implemented |
+| Input Validation | Medium | Fixed - Zod schema validation |
+| Error Leaks | Low | Fixed - Production error masking |
+
+See [SECURITY.md](SECURITY.md) for detailed vulnerability audit report.
+
 ## Features
 
 - **5-Layer Email Validation**: Regex, Typo detection, Disposable domain check, MX record verification
@@ -10,6 +28,7 @@ Full-stack email verification SaaS with a React frontend and Express API backend
 - **Tiered API Access**: Free, Pro, and Enterprise tiers with different rate limits
 - **Bulk Validation**: Validate up to 10,000 emails per request (Enterprise tier)
 - **Dashboard**: Drag-and-drop CSV import, search/filter/pagination, CSV export, keyboard shortcuts
+- **Admin Panel**: Web-based API key management with tier control
 - **Swagger/OpenAPI Docs**: Self-documenting API at `/docs`
 - **SQLite/Turso**: Works locally with SQLite, deploys to Turso (free 9GB) for production
 
@@ -56,7 +75,37 @@ Vite runs on port 5173 and proxies `/api` and `/docs` to Express on port 3000.
 | `/dashboard` | Dashboard | Main verification workspace |
 | `/security` | Security | Security specs and protocol details |
 | `/gdpr` | GDPR | GDPR compliance documentation |
+| `/admin` | Admin Panel | API key management (requires admin key) |
 | `/docs` | API Docs | Interactive Swagger documentation |
+
+## Admin Panel
+
+### Access
+1. Log in to your dashboard
+2. Navigate to `/admin` or click the "Admin Panel" link in dashboard
+3. Enter your Admin API Key when prompted
+
+### Features
+- **API Key Management**: View, create, deactivate, reactivate, update tiers, delete keys
+- **Statistics Dashboard**: Total keys, active keys, tier breakdown
+- **System Status**: Database, API server, validation engine status
+
+### Admin Key Setup
+The admin key must be set in your `.env` file:
+```env
+ADMIN_KEY=your-secure-admin-key-here
+```
+
+Create a key with admin access:
+```bash
+npm run generate-key -- create "Admin Key" enterprise
+```
+
+Or create one via the database:
+```sql
+INSERT INTO api_keys (name, key, tier, is_admin) 
+VALUES ('Admin Key', 'your-secure-key', 'enterprise', 1);
+```
 
 ## API Endpoints
 
@@ -100,6 +149,30 @@ Vite runs on port 5173 and proxies `/api` and `/docs` to Express on port 3000.
 | Free | 10 | 50 | 500 |
 | Pro | 100 | 1,000 | 50,000 |
 | Enterprise | 1,000 | 10,000 | Unlimited |
+
+## Security Configuration
+
+### CORS Configuration
+Set `CORS_ORIGINS` in `.env`:
+```env
+# Production (specific domains)
+CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+
+# Development (localhost)
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+```
+
+### Rate Limiting
+Rate limits are configured per tier in `src/config.js`. The default configuration:
+- Free tier: 10 requests per minute
+- Pro tier: 100 requests per minute
+- Enterprise tier: 1000 requests per minute
+
+### Daily Usage Limits
+Each tier has a daily email validation limit:
+- Free: 500 emails/day
+- Pro: 50,000 emails/day
+- Enterprise: Unlimited
 
 ## Deployment (Free Tier)
 
@@ -171,7 +244,7 @@ TURSO_AUTH_TOKEN=your-token
 Bulk-Email-Verifier-API/
 ├── client/                    # React SPA (Vite + TypeScript + Tailwind v4)
 │   ├── src/
-│   │   ├── pages/             # Landing, Dashboard, Login, Signup, Security, GDPR
+│   │   ├── pages/             # Landing, Dashboard, Login, Signup, Security, GDPR, Admin
 │   │   ├── components/        # Header, Footer, StatusBadge, Button, Card, etc.
 │   │   ├── api/               # API client (fetch wrapper with X-API-Key)
 │   │   ├── context/           # AuthContext (login/signup/logout state)
@@ -180,7 +253,7 @@ Bulk-Email-Verifier-API/
 ├── src/                       # Express API server
 │   ├── routes/                # validate, usage, health, auth, admin
 │   ├── services/              # emailValidator, keyManager, userManager
-│   ├── middleware/             # auth, rateLimiter, validator, errorHandler
+│   ├── middleware/            # auth, rateLimiter, validator, errorHandler
 │   ├── db/                    # SQLite (sql.js) / Turso database layer
 │   └── docs/                  # Swagger/OpenAPI spec
 ├── scripts/                   # CLI key management tool
@@ -202,3 +275,11 @@ npm run generate-key -- reactivate 1
 ## License
 
 MIT
+
+## Security Notes
+
+- Never expose your `ADMIN_KEY` in client-side code
+- Always use HTTPS in production
+- Set `CORS_ORIGINS` to specific domains, not `*`
+- Rotate API keys regularly
+- Monitor usage patterns for anomalies
