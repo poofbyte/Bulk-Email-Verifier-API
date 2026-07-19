@@ -9,14 +9,23 @@ let dbType = 'sql.js'; // 'sql.js' or 'turso'
 let tursoClient = null;
 
 async function initTurso() {
-  const { createClient } = require('@libsql/client');
-  tursoClient = createClient({
-    url: process.env.TURSO_DATABASE_URL,
-    authToken: process.env.TURSO_AUTH_TOKEN,
-  });
-  dbType = 'turso';
-  db = createTursoAdapter(tursoClient);
-  return db;
+  if (tursoClient) {
+    dbType = 'turso';
+    return db;
+  }
+  try {
+    const { createClient } = require('@libsql/client');
+    tursoClient = createClient({
+      url: process.env.TURSO_DATABASE_URL,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+    dbType = 'turso';
+    db = createTursoAdapter(tursoClient);
+    return db;
+  } catch (err) {
+    console.error('Failed to initialize Turso client:', err.message);
+    throw err;
+  }
 }
 
 function createTursoAdapter(client) {
@@ -117,27 +126,27 @@ function getDb() {
   return db;
 }
 
-// Auto-save (only needed for sql.js)
-function scheduleSave() {
-  if (dbType === 'turso') return; // Turso saves automatically
-  if (!db) return;
-  setImmediate(() => {
-    try {
-      const data = db.export();
-      if (!data) return;
-      const buffer = Buffer.from(data);
-      fs.writeFileSync(config.dbPath, buffer);
-    } catch (err) {
-      console.error('Failed to save database:', err);
-    }
-  });
-}
+  // Auto-save (only needed for sql.js)
+  function scheduleSave() {
+    if (dbType === 'turso') return; // Turso saves automatically
+    if (!db) return;
+    setImmediate(() => {
+      try {
+        const data = db.export();
+        if (!data || data === null) return;
+        const buffer = Buffer.from(data);
+        fs.writeFileSync(config.dbPath, buffer);
+      } catch (err) {
+        console.error('Failed to save database:', err);
+      }
+    });
+  }
 
 function saveDb() {
   if (dbType === 'turso') return;
   if (!db) return;
   const data = db.export();
-  if (!data) return;
+  if (!data || data === null) return;
   const buffer = Buffer.from(data);
   fs.writeFileSync(config.dbPath, buffer);
 }
