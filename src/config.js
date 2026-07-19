@@ -6,7 +6,8 @@ const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isDev: (process.env.NODE_ENV || 'development') !== 'production',
 
-  corsOrigins: process.env.CORS_ORIGINS || '*',
+  // CORS - changed default to production-safe localhost only
+  corsOrigins: process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000',
 
   dbPath: process.env.DB_PATH || path.join(process.cwd(), 'data', 'verifier.db'),
 

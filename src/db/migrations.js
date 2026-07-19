@@ -16,12 +16,14 @@ async function runMigrations() {
   `);
 
   // API Keys table - handle migration for existing databases
+  // Added raw_key column to store the full API key for login retrieval
   try {
     db.run(`
       CREATE TABLE api_keys (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         key_hash TEXT UNIQUE NOT NULL,
         key_prefix TEXT NOT NULL,
+        raw_key TEXT NOT NULL,
         name TEXT NOT NULL,
         tier TEXT NOT NULL DEFAULT 'free',
         active INTEGER NOT NULL DEFAULT 1,
@@ -32,9 +34,12 @@ async function runMigrations() {
       )
     `);
   } catch (e) {
-    // Table might already exist, try adding user_id column
+    // Table might already exist, try adding columns
     try {
       db.run('ALTER TABLE api_keys ADD COLUMN user_id INTEGER');
+    } catch {}
+    try {
+      db.run('ALTER TABLE api_keys ADD COLUMN raw_key TEXT');
     } catch {}
   }
 
@@ -55,6 +60,7 @@ async function runMigrations() {
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)',
     'CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_api_keys_raw_key ON api_keys(raw_key)',
     'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
     'CREATE INDEX IF NOT EXISTS idx_usage_logs_key_id ON usage_logs(api_key_id)',
     'CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON usage_logs(created_at)',

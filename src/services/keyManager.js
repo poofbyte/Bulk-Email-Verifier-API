@@ -4,7 +4,10 @@ const { getDb, scheduleSave } = require('../db/database');
 const KEY_LENGTH = 48;
 
 function generateRawKey() {
-  return 'bev_' + crypto.randomBytes(KEY_LENGTH).toString('base64url');
+  // Improved key generation with higher entropy using crypto.randomUUID() mixed with random bytes
+  const randomId = crypto.randomUUID().replace(/-/g, '');
+  const randomBytes = crypto.randomBytes(32).toString('hex');
+  return 'bev_' + randomId + randomBytes;
 }
 
 function hashKey(key) {
@@ -22,8 +25,8 @@ function createApiKey(name, tier = 'free') {
 
   const db = getDb();
   db.run(
-    'INSERT INTO api_keys (key_hash, key_prefix, name, tier) VALUES (?, ?, ?, ?)',
-    [keyHash, keyPrefix, name, tier]
+    'INSERT INTO api_keys (key_hash, key_prefix, raw_key, name, tier) VALUES (?, ?, ?, ?, ?)',
+    [keyHash, keyPrefix, rawKey, name, tier]
   );
 
   const row = db.exec('SELECT last_insert_rowid() as id');
@@ -41,7 +44,7 @@ function verifyApiKey(rawKey) {
   const db = getDb();
 
   const stmt = db.prepare(
-    'SELECT id, key_prefix, name, tier, active FROM api_keys WHERE key_hash = ?'
+    'SELECT id, key_prefix, name, tier, active, raw_key FROM api_keys WHERE key_hash = ?'
   );
   stmt.bind([keyHash]);
 
@@ -147,6 +150,65 @@ function logUsage(apiKeyId, endpoint, emailsValidated, durationMs) {
   scheduleSave();
 }
 
+// Check daily email limit for an API key
+function checkDailyLimit(apiKeyId, emailsToAdd) {
+  const todayStats = getUsageStats(apiKeyId);
+  const tier = getTierForApiKey(apiKeyId);
+  const dailyLimit = tier.dailyEmails;
+  
+  if (dailyLimit === Infinity) return true;
+  
+  const currentUsage = todayStats.today.emails;
+  return (currentUsage + emailsToAdd) <= dailyLimit;
+}
+
+// Get tier config for an API key
+function getTierForApiKey(apiKeyId) {
+  const db = getDb();
+  const keyStmt = db.prepare(
+    'SELECT tier FROM api_keys WHERE id = ?'
+  );
+  keyStmt.bind([apiKeyId]);
+  let tier = 'free';
+  if (keyStmt.step()) {
+    tier = keyStmt.get()[0];
+  }
+  keyStmt.free();
+  const config = require('../config');
+  return config.tiers[tier] || config.tiers.free;
+}
+
+// Get API key by user ID (returns the raw key)
+function getApiKeyByUserId(userId) {
+  const db = getDb();
+  const stmt = db.prepare('SELECT raw_key FROM api_keys WHERE user_id = ? AND active = 1 LIMIT 1');
+  stmt.bind([userId]);
+  
+  let apiKey = null;
+  if (stmt.step()) {
+    apiKey = stmt.get()[0];
+  }
+  stmt.free();
+  
+  return apiKey;
+}
+
+// Get API key ID by raw key
+function getApiKeyIdByRawKey(rawKey) {
+  const keyHash = hashKey(rawKey);
+  const db = getDb();
+  const stmt = db.prepare('SELECT id FROM api_keys WHERE key_hash = ?');
+  stmt.bind([keyHash]);
+  
+  let keyId = null;
+  if (stmt.step()) {
+    keyId = stmt.get()[0];
+  }
+  stmt.free();
+  
+  return keyId;
+}
+
 module.exports = {
   generateRawKey,
   hashKey,
@@ -159,4 +221,8 @@ module.exports = {
   deleteApiKey,
   getUsageStats,
   logUsage,
+  checkDailyLimit,
+  getTierForApiKey,
+  getApiKeyByUserId,
+  getApiKeyIdByRawKey,
 };

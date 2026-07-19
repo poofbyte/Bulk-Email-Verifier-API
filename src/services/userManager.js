@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { getDb, scheduleSave } = require('../db/database');
-const { createApiKey, hashKey } = require('./keyManager');
+const { createApiKey, hashKey, verifyApiKey, getApiKeyByUserId } = require('./keyManager');
 
 const SALT_ROUNDS = 12;
 
@@ -51,20 +51,12 @@ function verifyUser(email, password) {
   const valid = bcrypt.compareSync(password, row.password_hash);
   if (!valid) return { error: 'Invalid email or password' };
 
-  // Find user's API key
-  const keyStmt = db.prepare('SELECT id FROM api_keys WHERE user_id = ? AND active = 1 LIMIT 1');
-  keyStmt.bind([row.id]);
-  let keyId = null;
-  if (keyStmt.step()) {
-    const keyCols = keyStmt.getColumnNames();
-    const keyVals = keyStmt.get();
-    keyId = keyVals[0];
-  }
-  keyStmt.free();
-
+  // FIXED: Get the existing API key for this user (returns the raw key)
+  const apiKey = getApiKeyByUserId(row.id);
+  
   return {
     user: { id: row.id, name: row.name, email: row.email },
-    keyId,
+    apiKey: apiKey,
   };
 }
 

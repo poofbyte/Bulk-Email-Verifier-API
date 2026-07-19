@@ -1,4 +1,4 @@
-const { verifyApiKey } = require('../services/keyManager');
+const { verifyApiKey, getTierForApiKey } = require('../services/keyManager');
 const config = require('../config');
 
 function authMiddleware(req, res, next) {
@@ -33,7 +33,22 @@ function authMiddleware(req, res, next) {
 function adminAuthMiddleware(req, res, next) {
   const apiKey = req.headers['x-api-key'];
 
-  if (!apiKey || apiKey !== config.adminKey) {
+  if (!apiKey) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'MISSING_API_KEY',
+        message: 'X-API-Key header is required',
+      },
+    });
+  }
+
+  const keyData = verifyApiKey(apiKey);
+  
+  // Admin key must be from an admin user or match the ADMIN_KEY environment variable
+  // Check if this key belongs to an admin user (user_id > 0 and is admin)
+  // For simplicity, check if the key matches the raw ADMIN_KEY env var
+  if (apiKey !== config.adminKey) {
     return res.status(403).json({
       success: false,
       error: {
@@ -43,6 +58,21 @@ function adminAuthMiddleware(req, res, next) {
     });
   }
 
+  // Verify the admin key is actually valid in the database
+  const keyDataDb = verifyApiKey(apiKey);
+  if (!keyDataDb) {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'ADMIN_KEY_NOT_FOUND',
+        message: 'Admin key not found in database',
+      },
+    });
+  }
+
+  req.apiKey = keyDataDb;
+  req.isAdmin = true;
+  req.tierConfig = config.tiers[keyDataDb.tier] || config.tiers.free;
   next();
 }
 

@@ -1,12 +1,13 @@
 const express = require('express');
 const { authMiddleware } = require('../middleware/auth');
-const { createKeyRateLimiter } = require('../middleware/rateLimiter');
+const { createKeyRateLimiter, createDailyUsageEnforcer } = require('../middleware/rateLimiter');
 const { validateEmail, validateBulk } = require('../middleware/validator');
 const { validateSingleEmail, validateBulkEmails, sanitizeInput } = require('../services/emailValidator');
-const { logUsage } = require('../services/keyManager');
+const { logUsage, getUsageStats } = require('../services/keyManager');
 
 const router = express.Router();
 const keyLimiter = createKeyRateLimiter();
+const dailyEnforcer = createDailyUsageEnforcer();
 
 /**
  * @swagger
@@ -38,10 +39,10 @@ const keyLimiter = createKeyRateLimiter();
  *       429:
  *         description: Rate limit exceeded
  */
-router.post('/', authMiddleware, keyLimiter, validateEmail, async (req, res, next) => {
+router.post('/', authMiddleware, keyLimiter, dailyEnforcer, validateEmail, async (req, res, next) => {
   try {
     const startTime = Date.now();
-    const email = sanitizeInput(req.validatedBody.email);
+    const email = sanitizeInput(req.validulatedBody.email);
     const result = await validateSingleEmail(email);
     const duration = Date.now() - startTime;
 
@@ -89,12 +90,12 @@ router.post('/', authMiddleware, keyLimiter, validateEmail, async (req, res, nex
  *       429:
  *         description: Rate limit exceeded
  */
-router.post('/bulk', authMiddleware, keyLimiter, validateBulk, async (req, res, next) => {
+router.post('/bulk', authMiddleware, keyLimiter, dailyEnforcer, validateBulk, async (req, res, next) => {
   try {
     const emails = req.validatedBody.emails.map(sanitizeInput);
 
-    // Enforce tier batch size limit
-    if (emails.length > req.tierConfig.maxBatchSize) {
+    // Enforce tier batch size limit (admin keys bypass tier limits)
+    if (!req.isAdmin && emails.length > req.tierConfig.maxBatchSize) {
       return res.status(400).json({
         success: false,
         error: {
@@ -102,6 +103,21 @@ router.post('/bulk', authMiddleware, keyLimiter, validateBulk, async (req, res, 
           message: `Your ${req.apiKey.tier} tier allows a maximum of ${req.tierConfig.maxBatchSize} emails per request`,
         },
       });
+    }
+
+    // Enforce tier daily limit (admin keys bypass tier limits)
+    if (!req.isAdmin && req.tierConfig.dailyEmails !== Infinity) {
+      const stats = getUsageStats(req.apiKey.id);
+      const remaining = req.tierConfig.dailyEmails - stats.today.emails;
+      if (emails.length > remaining) {
+        return res.status(429).json({
+          success: false,
+          error: {
+            code: 'DAILY_LIMIT_EXCEEDED',
+            message: `You have ${remaining} emails remaining in your daily limit. Your ${req.apiKey.tier} tier allows ${req.tierConfig.dailyEmails} emails per day.`,
+          },
+        });
+      }
     }
 
     const startTime = Date.now();

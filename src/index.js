@@ -13,7 +13,7 @@ const { runMigrations } = require('./db/migrations');
 const { closeDb } = require('./db/database');
 const swaggerSpec = require('./docs/swagger');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
-const { globalLimiter } = require('./middleware/rateLimiter');
+const { globalLimiter, createKeyRateLimiter, createAuthRateLimiter } = require('./middleware/rateLimiter');
 
 // Routes
 const validateRoutes = require('./routes/validate');

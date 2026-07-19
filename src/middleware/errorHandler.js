@@ -1,16 +1,23 @@
 function errorHandler(err, req, res, _next) {
-  // Log error internally
+  // Log error internally (with stack trace for debugging)
   console.error('Unhandled error:', err);
 
-  // Don't leak internal details in production
+  // Determine environment
   const isDev = process.env.NODE_ENV !== 'production';
 
-  res.status(err.status || 500).json({
+  // Get error code and message safely
+  const errorCode = err.code || (err.name === 'ValidationError' ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR');
+  const errorMessage = isDev ? err.message : 'An unexpected error occurred';
+
+  // For ValidationError, provide more details in dev only
+  const details = isDev && err.errors ? { errors: err.errors } : undefined;
+
+  res.status(err.status || err.statusCode || 500).json({
     success: false,
     error: {
-      code: err.code || 'INTERNAL_ERROR',
-      message: isDev ? err.message : 'An unexpected error occurred',
-      ...(isDev && { stack: err.stack }),
+      code: errorCode,
+      message: errorMessage,
+      ...(details && { details }),
     },
   });
 }

@@ -1,7 +1,8 @@
 const express = require('express');
 const { z } = require('zod');
 const { createUser, verifyUser, findUserByApiKey } = require('../services/userManager');
-const { hashKey } = require('../services/keyManager');
+const { hashKey, verifyApiKey } = require('../services/keyManager');
+const { createAuthRateLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
@@ -41,7 +42,8 @@ const loginSchema = z.object({
  *       409:
  *         description: Email already registered
  */
-router.post('/signup', (req, res) => {
+// FIXED: Added auth rate limiter to prevent brute force attacks
+router.post('/signup', createAuthRateLimiter(), (req, res) => {
   const result = signupSchema.safeParse(req.body);
   if (!result.success) {
     return res.status(400).json({
@@ -95,7 +97,9 @@ router.post('/signup', (req, res) => {
  *       401:
  *         description: Invalid credentials
  */
-router.post('/login', (req, res) => {
+// FIXED: Added auth rate limiter to prevent brute force attacks
+// FIXED: Returns the existing API key instead of creating a new one
+router.post('/login', createAuthRateLimiter(), (req, res) => {
   const result = loginSchema.safeParse(req.body);
   if (!result.success) {
     return res.status(400).json({
@@ -118,28 +122,20 @@ router.post('/login', (req, res) => {
     });
   }
 
-  // Get the actual key value by finding and regenerating
-  // Actually we need to get the key prefix - but we can't recover the full key
-  // So we need to return the key from the original creation
-  // For login, we need to regenerate a new key
-  const { getDb, scheduleSave } = require('../db/database');
-  const db = getDb();
-
-  // Delete old key and create new one
-  if (response.keyId) {
-    db.run('UPDATE api_keys SET active = 0 WHERE id = ?', [response.keyId]);
+  // FIXED: Return the existing API key instead of creating a new one
+  // The verifyUser function now returns the raw API key from the database
+  if (!response.apiKey) {
+    return res.status(500).json({
+      success: false,
+      error: { code: 'NO_API_KEY', message: 'No API key found for this user' },
+    });
   }
-
-  const { createApiKey } = require('../services/keyManager');
-  const newKey = createApiKey(`${response.user.name}'s API Key`, 'free');
-  db.run('UPDATE api_keys SET user_id = ? WHERE id = ?', [response.user.id, newKey.id]);
-  scheduleSave();
 
   res.json({
     success: true,
     data: {
       user: response.user,
-      apiKey: newKey.key,
+      apiKey: response.apiKey,
     },
   });
 });
