@@ -5,15 +5,32 @@ async function runMigrations() {
   const db = getDb();
 
   // Users table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      password_hash TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
+  try {
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        is_admin INTEGER NOT NULL DEFAULT 0,
+        tier TEXT NOT NULL DEFAULT 'free',
+        daily_limit INTEGER DEFAULT 500,
+        monthly_limit INTEGER DEFAULT 15000,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT,
+        last_login_at TEXT
+      )
+    `);
+  } catch (e) {
+    // Add missing columns if they don't exist
+    try { db.run('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1'); } catch {}
+    try { db.run('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0'); } catch {}
+    try { db.run('ALTER TABLE users ADD COLUMN tier TEXT DEFAULT "free"'); } catch {}
+    try { db.run('ALTER TABLE users ADD COLUMN daily_limit INTEGER DEFAULT 500'); } catch {}
+    try { db.run('ALTER TABLE users ADD COLUMN monthly_limit INTEGER DEFAULT 15000'); } catch {}
+    try { db.run('ALTER TABLE users ADD COLUMN last_login_at TEXT'); } catch {}
+  }
 
   // API Keys table - handle migration for existing databases
   // Added raw_key column to store the full API key for login retrieval

@@ -1,157 +1,235 @@
 const express = require('express');
+const router = express.Router();
 const { adminAuthMiddleware } = require('../middleware/auth');
 const {
-  createApiKey,
+  listUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  deleteUser,
+  getUserStats,
+  getUserVerificationHistory,
+  getDashboardStats,
+  getUserApiKey,
+  regenerateUserApiKey
+} = require('../services/userManager');
+const {
   listApiKeys,
+  createApiKey,
   deactivateApiKey,
   reactivateApiKey,
   updateKeyTier,
-  deleteApiKey,
+  deleteApiKey
 } = require('../services/keyManager');
+const config = require('../config');
 
-const router = express.Router();
-
-// All admin routes require the admin key
-router.use(adminAuthMiddleware);
-
-/**
- * @swagger
- * /api/v1/admin/keys:
- *   post:
- *     tags: [Admin]
- *     summary: Create a new API key
- *     security:
- *       - AdminKeyAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name]
- *             properties:
- *               name:
- *                 type: string
- *               tier:
- *                 type: string
- *                 enum: [free, pro, enterprise]
- *                 default: free
- *     responses:
- *       201:
- *         description: API key created
- */
-router.post('/keys', (req, res) => {
-  const { name, tier = 'free' } = req.body;
-
-  if (!name || typeof name !== 'string' || name.trim().length === 0) {
-    return res.status(400).json({
-      success: false,
-      error: { code: 'INVALID_NAME', message: 'Name is required' },
-    });
+// Dashboard Stats
+router.get('/stats', adminAuthMiddleware, (req, res) => {
+  try {
+    const stats = getDashboardStats();
+    res.json({ success: true, data: stats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
+});
 
-  if (!['free', 'pro', 'enterprise'].includes(tier)) {
-    return res.status(400).json({
-      success: false,
-      error: { code: 'INVALID_TIER', message: 'Tier must be free, pro, or enterprise' },
-    });
+// User Management
+router.get('/users', adminAuthMiddleware, (req, res) => {
+  try {
+    const { page = 1, limit = 25, search = null, status = null, tier = null } = req.query;
+    const result = listUsers({ page: parseInt(page), limit: parseInt(limit), search, status, tier });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
-
-  const key = createApiKey(name.trim(), tier);
-
-  res.status(201).json({
-    success: true,
-    data: {
-      id: key.id,
-      key: key.key,
-      keyPrefix: key.keyPrefix,
-      name: key.name,
-      tier: key.tier,
-    },
-    message: 'Save this API key - it will not be shown again',
-  });
 });
 
-/**
- * @swagger
- * /api/v1/admin/keys:
- *   get:
- *     tags: [Admin]
- *     summary: List all API keys
- *     security:
- *       - AdminKeyAuth: []
- *     responses:
- *       200:
- *         description: List of API keys
- */
-router.get('/keys', (req, res) => {
-  const keys = listApiKeys();
-  res.json({ success: true, data: keys });
-});
-
-/**
- * @swagger
- * /api/v1/admin/keys/{id}/deactivate:
- *   post:
- *     tags: [Admin]
- *     summary: Deactivate an API key
- *     security:
- *       - AdminKeyAuth: []
- */
-router.post('/keys/:id/deactivate', (req, res) => {
-  deactivateApiKey(req.params.id);
-  res.json({ success: true, message: 'Key deactivated' });
-});
-
-/**
- * @swagger
- * /api/v1/admin/keys/{id}/reactivate:
- *   post:
- *     tags: [Admin]
- *     summary: Reactivate an API key
- *     security:
- *       - AdminKeyAuth: []
- */
-router.post('/keys/:id/reactivate', (req, res) => {
-  reactivateApiKey(req.params.id);
-  res.json({ success: true, message: 'Key reactivated' });
-});
-
-/**
- * @swagger
- * /api/v1/admin/keys/{id}/tier:
- *   put:
- *     tags: [Admin]
- *     summary: Update an API key's tier
- *     security:
- *       - AdminKeyAuth: []
- */
-router.put('/keys/:id/tier', (req, res) => {
-  const { tier } = req.body;
-
-  if (!['free', 'pro', 'enterprise'].includes(tier)) {
-    return res.status(400).json({
-      success: false,
-      error: { code: 'INVALID_TIER', message: 'Tier must be free, pro, or enterprise' },
-    });
+router.get('/users/:id', adminAuthMiddleware, (req, res) => {
+  try {
+    const user = getUserById(parseInt(req.params.id));
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+    }
+    res.json({ success: true, data: user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
-
-  updateKeyTier(req.params.id, tier);
-  res.json({ success: true, message: `Tier updated to ${tier}` });
 });
 
-/**
- * @swagger
- * /api/v1/admin/keys/{id}:
- *   delete:
- *     tags: [Admin]
- *     summary: Delete an API key
- *     security:
- *       - AdminKeyAuth: []
- */
-router.delete('/keys/:id', (req, res) => {
-  deleteApiKey(req.params.id);
-  res.json({ success: true, message: 'Key deleted' });
+router.post('/users', adminAuthMiddleware, (req, res) => {
+  try {
+    const { email, name, password, tier = 'free', is_active = true, is_admin = false } = req.body;
+    
+    if (!email || !name || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'MISSING_FIELDS', message: 'Email, name, and password are required' } 
+      });
+    }
+    
+    // Check if user already exists
+    const existing = listUsers({ search: email, limit: 1 });
+    if (existing.data.length > 0) {
+      return res.status(409).json({ 
+        success: false, 
+        error: { code: 'USER_EXISTS', message: 'User with this email already exists' } 
+      });
+    }
+    
+    const user = createUser({ email, name, password, tier, is_active, is_admin });
+    res.status(201).json({ success: true, data: user });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.put('/users/:id', adminAuthMiddleware, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = getUserById(id);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+    }
+    
+    const updates = req.body;
+    const updatedUser = updateUser(id, updates);
+    res.json({ success: true, data: updatedUser });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.delete('/users/:id', adminAuthMiddleware, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = getUserById(id);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+    }
+    
+    // Prevent deleting yourself
+    if (user.id === req.apiKey.user_id) {
+      return res.status(403).json({ 
+        success: false, 
+        error: { code: 'CANNOT_DELETE_SELF', message: 'Cannot delete your own account' } 
+      });
+    }
+    
+    deleteUser(id);
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+// User Stats
+router.get('/users/:id/stats', adminAuthMiddleware, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const stats = getUserStats(userId);
+    res.json({ success: true, data: stats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+// User API Keys
+router.get('/users/:id/keys', adminAuthMiddleware, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const user = getUserById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+    }
+    
+    const keys = listApiKeys().filter(k => k.user_id === userId);
+    res.json({ success: true, data: keys });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.get('/users/:id/verification-history', adminAuthMiddleware, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { page = 1, limit = 50, startDate = null, endDate = null } = req.query;
+    
+    const user = getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+    }
+    
+    const history = getUserVerificationHistory(userId, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      startDate,
+      endDate
+    });
+    
+    res.json({ success: true, data: history });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.post('/users/:id/keys', adminAuthMiddleware, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { name = "User's API Key", tier = 'free' } = req.body;
+    
+    const user = getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+    }
+    
+    const key = createApiKey(name, tier);
+    res.status(201).json({ success: true, data: key });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+// System Configuration
+router.get('/config', adminAuthMiddleware, (req, res) => {
+  try {
+    const tierConfig = config.tiers;
+    const rateLimits = config.rateLimits;
+    
+    res.json({ 
+      success: true, 
+      data: { 
+        tiers: tierConfig,
+        rateLimits,
+        adminKeySet: !!process.env.ADMIN_KEY
+      } 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.put('/config/ratelimits', adminAuthMiddleware, (req, res) => {
+  try {
+    const { rateLimits } = req.body;
+    
+    if (rateLimits) {
+      // Update rate limits config
+      for (const [tier, limits] of Object.entries(rateLimits)) {
+        if (config.tiers[tier]) {
+          config.tiers[tier].rateLimit = limits.requestsPerMinute;
+          config.tiers[tier].batchSize = limits.maxBatchSize;
+          config.tiers[tier].dailyEmails = limits.dailyEmails;
+        }
+      }
+    }
+    
+    res.json({ success: true, message: 'Rate limits updated successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
 });
 
 module.exports = router;
