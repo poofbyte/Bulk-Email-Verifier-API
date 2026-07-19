@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import LandingPage from '@/pages/LandingPage';
 import Dashboard from '@/pages/Dashboard';
+import AdminPanel from '@/pages/AdminPanel';
 import Login from '@/pages/Login';
 import Signup from '@/pages/Signup';
 import Security from '@/pages/Security';
@@ -27,6 +28,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminPanel />
                 </ProtectedRoute>
               }
             />

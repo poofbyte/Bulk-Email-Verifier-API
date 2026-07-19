@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Play, Square, Trash2, Download, Search, ChevronDown, ChevronUp,
-  UploadCloud, Keyboard, Copy, Check, Key, Loader2,
+  UploadCloud, Keyboard, Copy, Check, Key, Loader2, Shield,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useValidation } from '@/hooks/useValidation';
@@ -19,7 +19,8 @@ function parseEmails(text: string): string[] {
 }
 
 export default function Dashboard() {
-  const { apiKey, user } = useAuth();
+   const { apiKey, user } = useAuth();
+   const [showAdminLink, setShowAdminLink] = useState(false);
   const { results, stats, loading, error, validateBulk, clear } = useValidation();
   const [rawInput, setRawInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -41,14 +42,20 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Fetch usage stats
-  useEffect(() => {
-    if (apiKey) {
-      getUsage().then((res) => {
-        if (res.success) setUsage(res.data);
-      }).catch(() => {});
-    }
-  }, [apiKey, stats]);
+   // Fetch usage stats
+   useEffect(() => {
+     if (apiKey) {
+       getUsage().then((res) => {
+         if (res.success) setUsage(res.data);
+       }).catch(() => {});
+     }
+   }, [apiKey, stats]);
+
+   // Check if admin key is set
+   useEffect(() => {
+     const hasAdminKey = !!localStorage.getItem('bev_admin_key');
+     setShowAdminLink(hasAdminKey);
+   }, []);
 
   // Save to history when validation completes
   useEffect(() => {
@@ -414,7 +421,22 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* History */}
+             {/* Admin Panel Link */}
+             {showAdminLink && (
+               <div className="bg-white border border-brand-200 rounded-lg overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
+                 <div className="px-3 py-2 border-b border-brand-200 flex items-center gap-2 bg-neutral-50">
+                   <Shield className="w-3 h-3 text-accent-600" />
+                   <span className="text-[10px] font-bold text-brand-500 font-mono uppercase tracking-wider">Admin Panel</span>
+                 </div>
+                 <div className="p-4">
+                   <a href="/admin" className="block w-full text-center text-xs font-medium text-accent-600 bg-accent-50 hover:bg-accent-100 border border-accent-200 rounded-md py-2 transition-colors">
+                     Manage API Keys & System Settings
+                   </a>
+                 </div>
+               </div>
+             )}
+
+             {/* History */}
             {history.length > 0 && (
               <div className="bg-white border border-brand-200 rounded-lg overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
                 <div className="px-3 py-2 border-b border-brand-200">

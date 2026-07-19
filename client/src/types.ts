@@ -103,3 +103,21 @@ export interface UsageResponse {
     allTime: { emails: number; requests: number };
   };
 }
+
+export interface AdminApiKey {
+  id: number;
+  key: string;
+  keyPrefix: string;
+  name: string;
+  tier: string;
+}
+
+export interface AdminApiKeyList {
+  id: number;
+  key_prefix: string;
+  name: string;
+  tier: string;
+  active: boolean;
+  created_at: string;
+  last_used_at: string | null;
+}

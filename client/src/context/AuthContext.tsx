@@ -63,11 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.data.user);
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('bev_api_key');
-    setApiKey(null);
-    setUser(null);
-  }, []);
+   const logout = useCallback(() => {
+     localStorage.removeItem('bev_api_key');
+     localStorage.removeItem('bev_admin_key');
+     setApiKey(null);
+     setUser(null);
+   }, []);
 
   return (
     <AuthContext.Provider value={{ user, apiKey, isAuthenticated: !!user, loading, login, signup, logout }}>
